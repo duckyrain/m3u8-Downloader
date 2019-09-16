@@ -1,6 +1,10 @@
 # m3u8-Downloader
 Download m3u8 to ts with multithreading
 
+# install
+
+pip install gevent
+
 # How to use
 ```
 downloader = Downloader(50)

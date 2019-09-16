@@ -1,13 +1,16 @@
-#coding: utf-8
+# coding: utf-8
+
+from urllib.parse import urljoin
 
 from gevent import monkey
-monkey.patch_all()
 from gevent.pool import Pool
 import gevent
 import requests
-import urlparse
 import os
 import time
+
+monkey.patch_all()
+
 
 class Downloader:
     def __init__(self, pool_size, retry=3):
@@ -19,7 +22,8 @@ class Downloader:
         self.failed = []
         self.ts_total = 0
 
-    def _get_http_session(self, pool_connections, pool_maxsize, max_retries):
+    @staticmethod
+    def _get_http_session(pool_connections, pool_maxsize, max_retries):
             session = requests.Session()
             adapter = requests.adapters.HTTPAdapter(pool_connections=pool_connections, pool_maxsize=pool_maxsize, max_retries=max_retries)
             session.mount('http://', adapter)
@@ -35,16 +39,16 @@ class Downloader:
         if r.ok:
             body = r.content
             if body:
-                ts_list = [urlparse.urljoin(m3u8_url, n.strip()) for n in body.split('\n') if n and not n.startswith("#")]
-                ts_list = zip(ts_list, [n for n in xrange(len(ts_list))])
+                ts_list = [urljoin(m3u8_url, n.strip()) for n in body.decode().split('\n') if n and not n.startswith("#")]
+                ts_list = list(zip(ts_list, [n for n in range(len(ts_list))]))
                 if ts_list:
                     self.ts_total = len(ts_list)
-                    print self.ts_total
+                    print(self.ts_total)
                     g1 = gevent.spawn(self._join_file)
                     self._download(ts_list)
                     g1.join()
         else:
-            print r.status_code
+            print(r.status_code)
 
     def _download(self, ts_list):
         self.pool.map(self._worker, ts_list)
@@ -62,14 +66,14 @@ class Downloader:
                 r = self.session.get(url, timeout=20)
                 if r.ok:
                     file_name = url.split('/')[-1].split('?')[0]
-                    print file_name
+                    print(file_name)
                     with open(os.path.join(self.dir, file_name), 'wb') as f:
                         f.write(r.content)
                     self.succed[index] = file_name
                     return
             except:
                 retry -= 1
-        print '[FAIL]%s' % url
+        print('[FAIL]%s' % url)
         self.failed.append((url, index))
 
     def _join_file(self):
@@ -89,6 +93,7 @@ class Downloader:
                 time.sleep(1)
         if outfile:
             outfile.close()
+
 
 if __name__ == '__main__':
     downloader = Downloader(50)
